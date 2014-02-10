@@ -82,7 +82,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="plyReader.cpp" />
   </ItemGroup>
   <ItemGroup>

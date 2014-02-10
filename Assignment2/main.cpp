@@ -25,6 +25,7 @@
 
 #include "plyReader.h"
 
+
 #define KEY_ESCAPE 27
 #define MAX_PARTICLES 300
 
@@ -35,6 +36,7 @@ Window
 ************************************************************************/
 #define ANAGLYPH  1 
 #define STEREO  2
+#define ANAGLYPH_ASYMMETRIC 3
 typedef struct {
 	int width;
 	int height;
@@ -67,8 +69,8 @@ glutWindow win;
 bool renderPaused = false;
 float prevTime;
 float cubeRotation = 0.0f;
-float cubeAmplitude = 1.0f;
-gmtl::Vec3f _camPos = gmtl::Vec3f(0.0, 0.0, 0.5);
+float cubeAmplitude = 0.2f;
+gmtl::Vec3f _camPos = gmtl::Vec3f(0.0, 0.0, 0.0);
 gmtl::Vec3f _target = gmtl::Vec3f(0.0, 0.0, 0.0);
 float _viewAngle = 3.14f;
 float _forward = 0.0f;
@@ -151,27 +153,59 @@ void DrawSphere(float size, gmtl::Vec3f translation, gmtl::Vec3f color, char rot
 	glutSolidSphere(size, 25, 25);
 	glPopMatrix();
 }
-void DrawScene(){
+void DrawTunnel(){
+	
+	float xLeft = -1.3333 * 0.5;
+	float xRight = 1.333 * 0.5;
+	float top = 0.5;
+	float bottom = -0.5;
+	float zNear = -1.0f;
+	float zFar = -10.0f;
+	
+	glDisable(GL_LIGHTING);
+	glPushMatrix();
+	glColor3f(1.0, 1.0, 1.0);
+	glLineWidth(1.0f);
+	glBegin(GL_LINES); 
+	//Floor, Roof lines
+	for (GLfloat x = xLeft; x <= xRight; x += 0.15){
+		glVertex3f(x, bottom, zNear); glVertex3f(x, bottom, zFar);
+		glVertex3f(x, top, zNear); glVertex3f(x, top, zFar);
+	}
+	for (GLfloat z = zNear; z >= zFar; z -= 0.5){
+		glVertex3f(xLeft, bottom, z); glVertex3f(xRight, bottom, z); //floor
+		glVertex3f(xLeft, top, z); glVertex3f(xLeft, bottom, z); //Left wall vertical lines
+		glVertex3f(xRight, top, z); glVertex3f(xRight, bottom, z); //Right vertical lines
+		glVertex3f(xLeft, top, z); glVertex3f(xRight, top, z); //Roof vertical lines
+	}
+	
+	//Right,  Left wall
+	for (GLfloat y = top; y >= bottom; y -= 0.1){
+		glVertex3f(xLeft, y, zNear); glVertex3f(xLeft, y, zFar);
+		glVertex3f(xRight, y, zNear); glVertex3f(xRight, y, zFar);
 
-	//Rabbit ply
+	}
+	glEnd();
+	glPopMatrix();
+	glEnable(GL_LIGHTING);
+}
+void DrawBunny(float x, float y, float z, float scale = 1.0f, float r = 0.5f, float g = 0.5f, float b = 1.0f){
+	
 	glPushMatrix(); // gluLookat puts a transform in model view, save it with pushmatrix
-	glTranslatef(0, -0.1, 0);
+	glTranslatef(x, y ,z);
 	glRotatef(g_rotation, 0, 1, 0); // post multiply the current model view with a rotate
 	glRotatef(90, 0, 1, 0);
-
-	glColor3f(1.0f, 0.0f, 1.0f);
+	glScalef(scale,scale,scale);
+	glColor3f(r, g, b);
 	ply.Draw(); // calls the ply code to render the triangles stored in the object
-
 	glPopMatrix(); // get rid of the rotations
 	//g_rotation++; // a global variable that is incremented each frame and used in the rotation transform
-
-	//Drawing red sphere
-	glPushMatrix();
-	glTranslatef(0.0f, 0.0f, -1.0f);
-	glTranslatef(cubeAmplitude * sin(cubeRotation), 0.0f, cubeAmplitude * cos(cubeRotation));
-	glColor3f(0.5f, 0.5f, 1.0f);
-	glutSolidSphere(0.15f, 20, 20);
-	glPopMatrix();
+}
+void DrawScene(){
+	
+	for (GLfloat z = -1.5; z >= -5; z--){
+		DrawBunny(0, -0.3, z, 2.0f);
+	}
 
 	//Particle fountain
 	glPushMatrix();
@@ -179,24 +213,28 @@ void DrawScene(){
 	//DrawObjects();
 	glPopMatrix();
 
-	DrawSphere(0.25, gmtl::Vec3f(0, 0, -2), gmtl::Vec3f(1, 1, 0), 'z');
-	DrawSphere(0.25, gmtl::Vec3f(0, 0, -3), gmtl::Vec3f(1, 0.5, 0), 'x');
+	DrawSphere(0.1, gmtl::Vec3f(0, 0, -2), gmtl::Vec3f(1, 1, 0), 'z');
+	DrawSphere(0.1, gmtl::Vec3f(0, 0, -3), gmtl::Vec3f(1, 0.5, 0), 'x');
 	//wire cube
 	glPushMatrix();
 	glColor3f(0.0f, 1.0f, 1.0f);
 	glLineWidth(10.0);
 	glTranslatef(0.0, 0.0, -1.0);
 	glRotatef(cubeRotation, 1, 1, 1);
-	glutWireIcosahedron();// (1.0);
+	//glutWireIcosahedron();// (1.0);
 	glPopMatrix();
+
+
+	DrawTunnel();
+
 }
 
-float _eyeOffset = 0.005;
+float _eyeOffset = 0.002;
 void display()
 {
 
-
-	glClearColor(1.0, 1.0, 1.0, 0.0);
+	
+	glClearColor(0.2, 0.2, 0.2, 1.0);
 
 	if (_ProgramMode == STEREO) {
 		glDrawBuffer(GL_BACK_LEFT);
@@ -208,6 +246,7 @@ void display()
 
 	GLfloat aspect = (GLfloat)win.width / win.height;
 	gluPerspective(win.field_of_view_angle, aspect, win.z_near, win.z_far);
+	
 
 	//cout << glutGet(GLUT_ELAPSED_TIME) << endl;
 	if (glutGet(GLUT_ELAPSED_TIME) - prevTime >= (1000 / 24.0f)){
@@ -244,7 +283,8 @@ void display()
 	glLoadIdentity(); // Resets the Model view matrix
 	gmtl::Vec3f leftCamPos = newCamPos + _eyeOffset * perpVec;
 	eye = leftCamPos.getData();
-	gluLookAt(eye[0], eye[1], eye[2], goal[0], goal[1], goal[2], 0, 1, 0); // eye xyz goal xyz up vec xyz
+	 gluLookAt(eye[0], eye[1], eye[2], goal[0], goal[1], goal[2], 0, 1, 0); // eye xyz goal xyz up vec xyz
+	
 	if (_ProgramMode != STEREO) glColorMask(true, false, false, false);
 	DrawScene();
 
@@ -269,16 +309,128 @@ void display()
 	glutSwapBuffers(); // finished drawing this frame
 
 	//cout << "Mode: " << _ProgramMode << endl;
+	
+}
+
+void animate(){
+	if (glutGet(GLUT_ELAPSED_TIME) - prevTime >= (1000 / 24.0f)){
+
+
+		prevTime = glutGet(GLUT_ELAPSED_TIME);
+		if (!renderPaused){
+			cubeRotation += 0.05;
+			g_rotation++;
+		}
+	}
 
 }
+gmtl::Vec3f _camDir;
+float xDisplacement = 0.0;
+void moveCamera(){
+	//move camera position and target asymmetric
+	xDisplacement += _strafe;
+	_camPos[0] -= _strafe;
+	_camPos[2] += _forward;
+	_camDir.set(0.0, 0.0, -1.0);
+	_target = _camPos + _camDir;
+	_forward = 0;
+	_strafe = 0;
+}
+
 // This is run once to setup lights, render properties and the camera matrix
+void displayAsymmetric(){
+	animate();
+	moveCamera();
+	glClearColor(0.2, 0.2, 0.2, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	
+	float aspectRatio = (float) win.width / (float) win.height;
+	float radians = (3.14159 / 180)  * win.field_of_view_angle / 2;
+	float wd2 = win.z_near * tan(radians);
+	float testHeight = 1.0f;
+	
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	float left = -aspectRatio * wd2;
+	float right = aspectRatio * wd2;
+	float top = wd2;
+	float bottom = -wd2;
+	/*glFrustum(left, right, bottom, top, win.z_near, win.z_far);
+
+	glMatrixMode(GL_MODELVIEW);
+	glDrawBuffer(GL_BACK);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
+	gluLookAt(_camPos[0], _camPos[1], _camPos[2],_target[0], _target[1], _target[2],0, 1.0, 0);
+	DrawScene();
+	glutSwapBuffers();
+
+	*/
+
+	
+	//RIGHT EYE
+	left = -aspectRatio * wd2 - _eyeOffset;
+	right = aspectRatio * wd2 - _eyeOffset;
+	cout << "EyeOffset: " << _eyeOffset << endl;
+	left = -aspectRatio * 0.5f + xDisplacement;
+	right = aspectRatio * 0.5f + xDisplacement;
+	top = 0.5f;
+	bottom = -0.5f;
+	glFrustum(left, right, bottom, top, 1, win.z_far);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	
+	gluLookAt(_camPos[0], _camPos[1], _camPos[2], _target[0]  , _target[1], _target[2], 0, 1.0, 0);
+	/*gluLookAt(camera.pos.x + right.x, camera.pos.y + right.y, camera.pos.z + right.z,
+		camera.pos.x + right.x + camera.dir.x,
+		camera.pos.y + right.y + camera.dir.y,
+		camera.pos.z + right.z + camera.dir.z,
+		camera.up.x, camera.up.y, camera.up.z);*/
+	//glColorMask(true, false, false, false);
+	DrawScene();
+	cout << "Left: \n" << "left: " << left << "\nright: " << right << "\ntop: " << top << "\nbottom: " << bottom << endl;
+	cout << "CAM: " << _camPos<<endl;
+	// Left eye
+	/*glClear(GL_DEPTH_BUFFER_BIT);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	top = wd2;
+	bottom = -wd2;
+	left = -aspectRatio * wd2 + _eyeOffset;
+	right = aspectRatio * wd2 + _eyeOffset;
+
+	left = -aspectRatio * (testHeight / 2) + _eyeOffset;
+	right = aspectRatio * (testHeight / 2) + _eyeOffset;
+	top = testHeight / 2;
+	bottom = -testHeight / 2;
+
+	glFrustum(left, right, bottom, top, win.z_near, win.z_far);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(_camPos[0], _camPos[1], _camPos[2], _target[0], _target[1], _target[2], 0, 1.0, 0);*/
+	/*gluLookAt(camera.pos.x - right.x, camera.pos.y - right.y, camera.pos.z - right.z,
+		camera.pos.x - right.x + camera.dir.x,
+		camera.pos.y - right.y + camera.dir.y,
+		camera.pos.z - right.z + camera.dir.z,
+		camera.up.x, camera.up.y, camera.up.z);*/
+	/*glColorMask(false, true, true, false);
+	DrawScene();
+	cout << "Right: \n" << "left: " << left << "\nright: " << right << "\n top: " << top << "\n bottom: " << bottom << endl;
+	*/
+	cout << "\n" << endl;
+	//glColorMask(true, true, true, true);
+	glutSwapBuffers();
+
+}
 void initialize()
 {
 	GLfloat aspect = (GLfloat)win.width / win.height;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(win.field_of_view_angle, aspect, win.z_near, win.z_far);
-
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 	glMatrixMode(GL_MODELVIEW);
 	glShadeModel(GL_SMOOTH);
 	glClearColor(0.0f, 0.1f, 0.0f, 0.5f);
@@ -301,9 +453,7 @@ void initialize()
 
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
-	for (int i = 0; i < MAX_PARTICLES; i++){
-		CreateParticle(i);
-	}
+	
 }
 void reshape(int width, int height){
 	glViewport(0, 0, width, height);
@@ -329,10 +479,10 @@ void keyboard(unsigned char key, int x, int y)
 		exit(0);
 		break;
 	case 111: //o
-		_eyeOffset -= 0.001;
+		_eyeOffset -= 0.0001;
 		break;
 	case 112: //p
-		_eyeOffset += 0.001;
+		_eyeOffset += 0.0001;
 		break;
 	case 32://SPACE
 		//pause animations
@@ -354,13 +504,13 @@ void keyboard(unsigned char key, int x, int y)
 	case 65:
 	case 97: //a
 	{
-				 _strafe += 0.1;
+				 _strafe += 0.01;
 				 break;
 	}
 	case 68:
 	case 100: //d
 	{
-				  _strafe -= 0.1;
+				  _strafe -= 0.01;
 				  break;
 	}
 	case 81:
@@ -434,7 +584,7 @@ void keyboard(unsigned char key, int x, int y)
 int main(int argc, char **argv)
 {
 
-	cout << "\n Which mode do you want to run in? \n ANAGLYPH (or) ACTIVE STEREO?\n Press 1 for ANAGLYPH or Press 2 for ACTIVE STEREO: ";
+	cout << "\n Which mode do you want to run in? \n ANAGLYPH (or) ACTIVE STEREO?\n Press 1 for ANAGLYPH or \nPress 2 for ACTIVE STEREO or \nPress 3 for ASYMMETRIC ANAGLYPH: ";
 	int option;
 	cin >> option;
 
@@ -443,31 +593,40 @@ int main(int argc, char **argv)
 	win.height = 480;
 	win.title = "OpenGL/GLUT OBJ Loader.";
 	win.field_of_view_angle = 45;
-	win.z_near = 0.01f;
+	win.z_near = 1.0f;
 	win.z_far = 50.0f;
 
 	// initialize and run program
 	glutInit(&argc, argv);                                      // GLUT initialization
+	void(*displayfunc)() = NULL;
 	switch (option){
 	case 1:
 		_ProgramMode = 1;
 		glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);  // Display Mode
+		 displayfunc = &display;
 		cout << "Mode = " << _ProgramMode << endl;
 		break;
 	case 2:
 		_ProgramMode = 2;
 		glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH | GLUT_STEREO);  // Display Mode
+		displayfunc = &display;
+		cout << "Mode = " << _ProgramMode << endl;
+		break;
+	case 3:
+		_ProgramMode = 3;
+		glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+		displayfunc = &displayAsymmetric;	 // register Display Function
 		cout << "Mode = " << _ProgramMode << endl;
 		break;
 	default:
 		cout << "\nError. Invalid option selected\n";
 	}
-
 	glutInitWindowSize(win.width, win.height);	 // set window size
 	glutCreateWindow(win.title);	 // create Window
-	glutDisplayFunc(display);	 // register Display Function
+
+	glutDisplayFunc(displayfunc);	 // register Display Function
 	glutReshapeFunc(reshape);
-	glutIdleFunc(display);	 // register Idle Function
+	glutIdleFunc(displayfunc);	 // register Idle Function
 	glutKeyboardFunc(keyboard);	 // register Keyboard Handler
 	initialize();
 	ply.Load("BAPbunny.ply");

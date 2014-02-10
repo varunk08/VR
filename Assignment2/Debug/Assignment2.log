@@ -1,16 +1,15 @@
-﻿Build started 1/31/2014 10:03:40 PM.
+﻿Build started 2/10/2014 2:33:54 AM.
      1>Project "G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Assignment2\Assignment2.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _CRT_SECURE_NO_WARNINGS /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt main.cpp
          main.cpp
-     1>g:\varun\uofu\courses\virtual reality\assignment2_graphics\assignment2\assignment2\main.cpp(115): warning C4805: '==' : unsafe mix of type 'boolean' and type 'bool' in operation
+     1>g:\varun\uofu\courses\virtual reality\assignment2_graphics\assignment2\assignment2\main.cpp(117): warning C4805: '==' : unsafe mix of type 'boolean' and type 'bool' in operation
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Debug\Assignment2.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Debug\Assignment2.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Debug\Assignment2.lib" /MACHINE:X86 Debug\main.obj
-         Debug\ParticleSystem.obj
          Debug\plyReader.obj
          Assignment2.vcxproj -> G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Debug\Assignment2.exe
      1>Done Building Project "G:\Varun\UofU\COURSES\Virtual Reality\Assignment2_graphics\Assignment2\Assignment2\Assignment2.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:07.00
+Time Elapsed 00:00:01.84
