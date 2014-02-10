@@ -8,12 +8,12 @@
 * You can use Blender to triangulate
 *
 */
-
+#include <GL/freeglut.h>
 #include <windows.h> // remove this for mac
 
 #include <GL/gl.h> // These are in a different spot for mac and glut is already installed
 #include <GL/glu.h>
-#include <glut.h>
+
 #include <gmtl/gmtl.h> // This is a header-only library in the project folders
 
 #include <iostream>
@@ -25,6 +25,15 @@
 
 #include "plyReader.h"
 
+#include <sixense.h>
+#include <sixense_math.hpp>
+#ifdef WIN32
+#include <sixense_utils/mouse_pointer.hpp>
+#endif
+#include <sixense_utils/derivatives.hpp>
+#include <sixense_utils/button_states.hpp>
+#include <sixense_utils/event_triggers.hpp>
+#include <sixense_utils/controller_manager/controller_manager.hpp>
 
 #define KEY_ESCAPE 27
 #define MAX_PARTICLES 300
@@ -47,15 +56,7 @@ typedef struct {
 	float z_far;
 } glutWindow;
 
-typedef struct
-{
-	float lifetime;                       // total lifetime of the particle
-	float decay;                          // decay speed of the particle
-	float r, g, b;                          // color values of the particle
-	float xpos, ypos, zpos;                 // position of the particle
-	float xspeed, yspeed, zspeed;           // speed of the particle
-	boolean active;                       // is particle active or not?
-} PARTICLE;
+
 
 
 
@@ -75,63 +76,12 @@ gmtl::Vec3f _target = gmtl::Vec3f(0.0, 0.0, 0.0);
 float _viewAngle = 3.14f;
 float _forward = 0.0f;
 float _strafe = 0.0f;
-PARTICLE particle[MAX_PARTICLES];
 int _ProgramMode;
-void CreateParticle(int i)
-{
-	particle[i].lifetime = (float)gmtl::Math::rangeRandom(0, 500000) / 500000.0;
-	particle[i].decay = 0.001;
-	particle[i].r = (float)gmtl::Math::rangeRandom(0, 255) / 255;
-	particle[i].g = (float)gmtl::Math::rangeRandom(0, 255) / 255;
-	particle[i].b = (float)gmtl::Math::rangeRandom(0, 255) / 255;
-	particle[i].xpos = 0.0;
-	particle[i].ypos = 0.0;
-	particle[i].zpos = -1.0;
-	particle[i].xspeed = 0.0005 - (float)gmtl::Math::rangeRandom(0, 100) / 100000.0;
-	particle[i].yspeed = 0.01 - (float)gmtl::Math::rangeRandom(0, 100) / 100000.0;
-	particle[i].zspeed = 0.0005 - (float)gmtl::Math::rangeRandom(0, 100) / 100000.0;
-	particle[i].active = true;
-}
-void EvolveParticle()
-{
-	for (int i = 0; i <= MAX_PARTICLES; i++){      // evolve the particle parameters
-		particle[i].lifetime -= particle[i].decay;
-		particle[i].xpos += particle[i].xspeed;
-		particle[i].ypos += particle[i].yspeed;
-		particle[i].zpos += particle[i].zspeed;
-		particle[i].yspeed -= 0.00007;
-	}
-}
-void DrawObjects()
-{
 
-	// rendering functions
-
-	//glLoadIdentity();
-
-	//glRotatef(50.0, 1.0, 0.0, 0.0);         // show scene from top front
-
-	//glBindTexture(GL_TEXTURE_2D, ParticleTexture);          // choose particle texture
-	for (int i = 0; i <= MAX_PARTICLES; i++){
-		if (particle[i].ypos<0.0) particle[i].lifetime = 0.0;
-		if ((particle[i].active == true) && (particle[i].lifetime>0.0)){
-			glColor3f(particle[i].r, particle[i].g, particle[i].b);
-			//glBegin(GL_TRIANGLE_STRIP);
-			glPushMatrix();
-			glTranslatef(particle[i].xpos, particle[i].ypos, particle[i].zpos);
-			glutSolidSphere(0.02, 10, 10);
-			glPopMatrix();
-			/* glVertex3f(particle[i].xpos + 0.002, particle[i].ypos + 0.002, particle[i].zpos + 0.0);     // top    right
-			glVertex3f(particle[i].xpos - 0.002, particle[i].ypos + 0.002, particle[i].zpos + 0.0);     // top    left
-			glVertex3f(particle[i].xpos + 0.002, particle[i].ypos - 0.002, particle[i].zpos + 0.0);     // bottom right
-			glVertex3f(particle[i].xpos - 0.002, particle[i].ypos - 0.002, particle[i].zpos + 0.0);     // bottom left*/
-			//glEnd();
-		}
-		else CreateParticle(i);
-	}
-	EvolveParticle();
-}
-
+float xDisplacement = 0.0;
+float yDisplacement = 0.0;
+static bool controller_manager_screen_visible = true;
+std::string controller_manager_text_string;
 void DrawSphere(float size, gmtl::Vec3f translation, gmtl::Vec3f color, char rotationAxis){
 	glPushMatrix();
 	float *_translation = translation.getData();
@@ -325,20 +275,65 @@ void animate(){
 
 }
 gmtl::Vec3f _camDir;
-float xDisplacement = 0.0;
 void moveCamera(){
 	//move camera position and target asymmetric
-	xDisplacement += _strafe;
-	_camPos[0] -= _strafe;
+	//xDisplacement += _strafe;
+	cout << "Ydisp: " << yDisplacement << endl;
+	//_camPos[0] -= _strafe;
+	_camPos[0] = -xDisplacement;
+	_camPos[1] = yDisplacement;
 	_camPos[2] += _forward;
 	_camDir.set(0.0, 0.0, -1.0);
 	_target = _camPos + _camDir;
 	_forward = 0;
 	_strafe = 0;
 }
+float left_mouse_pos[2] = { 0, 0};
+void GetXDisplacement(){
+	int cont, base;
+	sixenseAllControllerData acd;
+	for (base = 0; base<sixenseGetMaxBases(); base++) {
+		sixenseSetActiveBase(base);
+		sixenseGetAllNewestData(&acd);
+
+		
+		cont = 0; //LEFT controller
+			if (sixenseIsControllerEnabled(cont)) {
+
+		//		printf("base: %d controller: %d   pos: %f %f %f \n\n", base, cont, acd.controllers[cont].pos[0], acd.controllers[cont].pos[1], acd.controllers[cont].pos[2]);
+				xDisplacement = (-acd.controllers[cont].pos[0] )/ 400.0;
+				yDisplacement = (acd.controllers[cont].pos[1] - 350) / 250.0 ;
+		}
+	}
+
+	
+}
+void UpdateSixenseControl(){
+	sixenseSetActiveBase(0);
+	sixenseAllControllerData acd;
+	sixenseGetAllNewestData(&acd);
+	sixenseUtils::getTheControllerManager()->update(&acd);
+
+	//check_for_button_presses(&acd);
+
+
+	GetXDisplacement();
+
+
+	// Either draw the controller manager instruction screen, or display the controller information
+	if (controller_manager_screen_visible) {
+		//draw_controller_manager_screen();
+	}
+	else {
+		//draw_controller_info();
+		//GetXDisplacement();
+	}
+}
 
 // This is run once to setup lights, render properties and the camera matrix
 void displayAsymmetric(){
+		UpdateSixenseControl();
+
 	animate();
 	moveCamera();
 	glClearColor(0.2, 0.2, 0.2, 1.0);
@@ -372,11 +367,11 @@ void displayAsymmetric(){
 	//RIGHT EYE
 	left = -aspectRatio * wd2 - _eyeOffset;
 	right = aspectRatio * wd2 - _eyeOffset;
-	cout << "EyeOffset: " << _eyeOffset << endl;
+	//cout << "EyeOffset: " << _eyeOffset << endl;
 	left = -aspectRatio * 0.5f + xDisplacement;
 	right = aspectRatio * 0.5f + xDisplacement;
-	top = 0.5f;
-	bottom = -0.5f;
+	top = 0.5f - yDisplacement;
+	bottom = -0.5f - yDisplacement;
 	glFrustum(left, right, bottom, top, 1, win.z_far);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -389,8 +384,8 @@ void displayAsymmetric(){
 		camera.up.x, camera.up.y, camera.up.z);*/
 	//glColorMask(true, false, false, false);
 	DrawScene();
-	cout << "Left: \n" << "left: " << left << "\nright: " << right << "\ntop: " << top << "\nbottom: " << bottom << endl;
-	cout << "CAM: " << _camPos<<endl;
+	//cout << "Left: \n" << "left: " << left << "\nright: " << right << "\ntop: " << top << "\nbottom: " << bottom << endl;
+	//cout << "CAM: " << _camPos<<endl;
 	// Left eye
 	/*glClear(GL_DEPTH_BUFFER_BIT);
 	glMatrixMode(GL_PROJECTION);
@@ -418,8 +413,10 @@ void displayAsymmetric(){
 	DrawScene();
 	cout << "Right: \n" << "left: " << left << "\nright: " << right << "\n top: " << top << "\n bottom: " << bottom << endl;
 	*/
-	cout << "\n" << endl;
+	//cout << "\n" << endl;
 	//glColorMask(true, true, true, true);
+
+
 	glutSwapBuffers();
 
 }
@@ -476,6 +473,7 @@ void keyboard(unsigned char key, int x, int y)
 {
 	switch (key) {
 	case KEY_ESCAPE:
+		//3glutLeaveFullScreen(); 
 		exit(0);
 		break;
 	case 111: //o
@@ -581,10 +579,35 @@ void keyboard(unsigned char key, int x, int y)
 	}
 }
 
+// flags that the controller manager system can set to tell the graphics system to draw the instructions
+// for the player
+
+void controller_manager_setup_callback(sixenseUtils::ControllerManager::setup_step step) {
+
+	if (sixenseUtils::getTheControllerManager()->isMenuVisible()) {
+
+		// Turn on the flag that tells the graphics system to draw the instruction screen instead of the controller information. The game
+		// should be paused at this time.
+		controller_manager_screen_visible = true;
+
+		// Ask the controller manager what the next instruction string should be.
+		controller_manager_text_string = sixenseUtils::getTheControllerManager()->getStepString();
+
+		// We could also load the supplied controllermanager textures using the filename: sixenseUtils::getTheControllerManager()->getTextureFileName();
+
+	}
+	else {
+
+		// We're done with the setup, so hide the instruction screen.
+		controller_manager_screen_visible = false;
+
+	}
+
+}
 int main(int argc, char **argv)
 {
 
-	cout << "\n Which mode do you want to run in? \n ANAGLYPH (or) ACTIVE STEREO?\n Press 1 for ANAGLYPH or \nPress 2 for ACTIVE STEREO or \nPress 3 for ASYMMETRIC ANAGLYPH: ";
+	cout << "\n Which mode do you want to run in? \n ANAGLYPH (or) ACTIVE STEREO?\n Press 1 for ANAGLYPH or \nPress 2 for ACTIVE STEREO or \n\n\nPress 3 for ASSIGNMENT 3: Head-Tracked VR using Razer Hydra: ";
 	int option;
 	cin >> option;
 
@@ -615,6 +638,7 @@ int main(int argc, char **argv)
 	case 3:
 		_ProgramMode = 3;
 		glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+		//glutFullScreen(); //set glut to fullscreen using the 
 		displayfunc = &displayAsymmetric;	 // register Display Function
 		cout << "Mode = " << _ProgramMode << endl;
 		break;
@@ -630,6 +654,16 @@ int main(int argc, char **argv)
 	glutKeyboardFunc(keyboard);	 // register Keyboard Handler
 	initialize();
 	ply.Load("BAPbunny.ply");
-	glutMainLoop();	 // run GLUT mainloop
+	// Init sixense
+	sixenseInit();
+
+	// Init the controller manager. This makes sure the controllers are present, assigned to left and right hands, and that
+	// the hemisphere calibration is complete.
+	sixenseUtils::getTheControllerManager()->setGameType(sixenseUtils::ControllerManager::ONE_PLAYER_TWO_CONTROLLER);
+	sixenseUtils::getTheControllerManager()->registerSetupCallback(controller_manager_setup_callback);
+
+	glutMainLoop();
+
+	sixenseExit();
 	return 0;
 }

@@ -4,7 +4,7 @@
 
 #include <GL/gl.h> // These are in a different spot for mac and glut is already installed
 #include <GL/glu.h>
-#include <glut.h>
+#include <GL/freeglut.h>
 
 #include <iostream>
 #include <sstream>
